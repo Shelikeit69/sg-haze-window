@@ -147,7 +147,9 @@ def score_hour_choice(log, pm):
     for (issue, region), g in c.groupby(["issue_time", "region"]):
         if g.y.isna().any() or len(g) == 0:
             continue  # wait until every candidate hour has a reading
-        row = {"issue_time": issue, "region": region, "haze_day": g.y.mean() >= HAZE}
+        h = pd.Timestamp(issue).hour
+        slot = "morning" if h < 12 else ("evening" if h >= 18 else "daytime")
+        row = {"issue_time": issue, "region": region, "issue_slot": slot, "haze_day": g.y.mean() >= HAZE}
         for who in ("advisor", "model"):
             picked = g[g[f"pick_{who}"].astype(str).str.lower() == "true"].y
             if len(picked) != 1:
@@ -159,15 +161,23 @@ def score_hour_choice(log, pm):
            "Candidates: 06:00-21:00 in the 24 h after each issue. Saving = mean PM2.5 over the "
            "candidates minus PM2.5 at the picked hour (higher is better). Regret = picked minus "
            "the lowest candidate (lower is better). Not part of the promotion criteria.", ""]
-    cols = ["issue_time", "region", "haze_day", "advisor_saving", "advisor_regret", "model_saving", "model_regret"]
+    cols = ["issue_time", "region", "issue_slot", "haze_day", "advisor_saving", "advisor_regret", "model_saving", "model_regret"]
     r = pd.DataFrame(rows, columns=cols)
     (ROOT / "results").mkdir(exist_ok=True)
     r.to_csv(ROOT / "results" / "shadow_hour_choice.csv", index=False, float_format="%.2f")
     if not rows:
         return out + ["No issue has all candidate hours observed yet."]
-    out += ["| Set | Issues | Advice saving | Advice regret | Shadow model saving | Shadow model regret |",
+    # Morning issues (05:50 run, same-day hours) match the backtest design. Evening issues
+    # (22:15 run, next-day hours, 8-23 h ahead) were never backtested: always reported apart.
+    out += ["Morning = issued before 12:00 (same setup as the backtest). Evening = issued 18:00 or "
+            "later for the next day; not backtested, so never pooled with morning results.", "",
+            "| Set | Issues | Advice saving | Advice regret | Shadow model saving | Shadow model regret |",
             "|---|---|---|---|---|---|"]
-    for name, s in (("All issues", r), ("Hazy (candidate mean >= 56)", r[r.haze_day])):
+    sets = []
+    for slot in ("morning", "evening", "daytime"):
+        s = r[r.issue_slot == slot]
+        sets += [(f"{slot.capitalize()}, all", s), (f"{slot.capitalize()}, hazy (candidate mean >= 56)", s[s.haze_day])]
+    for name, s in sets:
         if len(s):
             f = lambda c: f"{s[c].mean():.1f}" if c in s and s[c].notna().any() else "n/a"
             out.append(f"| {name} | {len(s)} | {f('advisor_saving')} | {f('advisor_regret')} | "

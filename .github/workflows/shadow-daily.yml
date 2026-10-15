@@ -4,7 +4,8 @@ name: Daily shadow run
 
 on:
   schedule:
-    - cron: "50 21 * * *"   # 05:50 Singapore time (UTC+8)
+    - cron: "50 21 * * *"   # 05:50 Singapore time (UTC+8): advice for today
+    - cron: "15 14 * * *"   # 22:15 Singapore time: advice for tomorrow, planned the night before
   workflow_dispatch: {}      # allows a manual run from the Actions tab
 
 permissions:
@@ -59,7 +60,7 @@ jobs:
             echo "Nothing new to commit"
             echo "pushed=false" >> "$GITHUB_OUTPUT"
           else
-            git commit -m "Daily shadow run $(date +%Y-%m-%d)"
+            git commit -m "Daily shadow run $(date '+%Y-%m-%d %H:%M') SGT"
             git pull --rebase origin main
             git push
             echo "pushed=true" >> "$GITHUB_OUTPUT"

@@ -55,7 +55,7 @@ GitHub does not show a secret's value after it is saved. To change the FIRMS key
 
 ## Daily shadow run
 
-`.github/workflows/shadow-daily.yml` runs every day at 05:50 Singapore time. It logs the frozen model's forecast, scores earlier forecasts, refreshes the demo data and commits the results. To run it by hand: Actions > Daily shadow run > Run workflow. If the FIRMS secret is missing, the run stops at "Log today's shadow forecast" with a message saying so.
+`.github/workflows/shadow-daily.yml` runs twice a day, at 05:50 Singapore time (advice for the same day) and 22:15 (advice for the next day). It logs the frozen model's forecast, scores earlier forecasts, refreshes the demo data and commits the results. To run it by hand: Actions > Daily shadow run > Run workflow. If the FIRMS secret is missing, the run stops at "Log today's shadow forecast" with a message saying so.
 
 ## Repository layout
 
