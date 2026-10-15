@@ -35,9 +35,10 @@ FOLDS = {
 
 
 def day_sets(df, train_end, d0, d1):
-    # Same-season data only: 2023-2025 had almost no haze in Singapore, and clean-air days
-    # have a different daily pattern (afternoon minimum) from haze days (morning minimum).
-    # Mixing them moved the "best hour" to the afternoon and made it worse (window_eval.py).
+    # Same-season data only: 2023-2025 had almost no haze in Singapore. Their daytime minimum
+    # was around midday/afternoon with a small spread, while 2026 days (haze or not) were lowest
+    # in the morning. Mixing years moved the "best hour" to the afternoon and made it worse
+    # (window_eval.py).
     season_start = pd.Timestamp(year=pd.Timestamp(d0).year, month=8, day=1)
     tr = df[(df.target_time <= pd.Timestamp(train_end)) & (df.target_time >= season_start)]
     ts = df[(df.issue_time >= pd.Timestamp(d0)) & (df.issue_time <= pd.Timestamp(d1) + pd.Timedelta(hours=23))]

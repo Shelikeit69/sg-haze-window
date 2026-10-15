@@ -1,49 +1,60 @@
 # sg-haze-window
 
-AI forecast of hourly PM2.5 in Singapore during transboundary haze, to help people pick lower-exposure windows for outdoor activity. Entry to the AI4Climate 2026 Global Youth Climate Solutions Challenge (open track).
-
 **Live demo:** https://shelikeit69.github.io/sg-haze-window/
 
-> Status: work in progress. Sections marked TODO are not yet written. No results are reported until they come out of the code in this repository.
+Haze Window estimates the next 24 hours of 1-hour PM2.5 for Singapore's five NEA regions during transboundary haze and suggests the daytime hour most likely to be cleanest for outdoor exercise. Entry to the AI4Climate 2026 Global Youth Climate Solutions Challenge (open track).
 
-## Problem
+## Submission documents
 
-TODO
+| Document | File |
+|---|---|
+| Project statement | [docs/01_project_statement.md](docs/01_project_statement.md) |
+| Data and AI statement | [docs/02_data_ai_statement.md](docs/02_data_ai_statement.md) |
+| Validation plan | [docs/03_validation_plan.md](docs/03_validation_plan.md) |
+| Demo video script | [docs/04_video_script.md](docs/04_video_script.md) |
+| Shadow model promotion criteria | [docs/promotion_criteria.md](docs/promotion_criteria.md) |
 
-## Users
+## Results in one table
 
-TODO
+Test period 6 to 15 October 2026; method chosen on 26 September to 5 October 2026.
 
-## What the AI does
+| | Average miss, µg/m³ | NEA band correct |
+|---|---|---|
+| Advice method (0.5 × current reading + 0.5 × rescaled CAMS) | 21.1 | 81 % |
+| Repeat the current reading | 24.4 | 73 % |
+| Machine-learning model, 13 to 24 h ahead (vs 31.9 for repeating the reading) | 36.4 | |
 
-TODO
+The machine-learning model did not beat the simple baseline and runs in shadow mode only. Results that use CAMS may be optimistic because we could not confirm when historical CAMS values were issued. Details and caveats: [docs/02_data_ai_statement.md](docs/02_data_ai_statement.md).
 
-## Data sources
+## Reproduce
 
-TODO
-
-## Results
-
-TODO. The model will be compared against a persistence baseline (next hours = current reading). If it does not beat the baseline, this section will say so.
-
-## Limitations and safe use
-
-TODO
-
-## Validation plan
-
-TODO
+```bash
+pip install pandas numpy scikit-learn joblib
+# keys for FIRMS (and OpenAQ, optional) are read from the environment
+export FIRMS_MAP_KEY=...            # free from firms.modaps.eosdis.nasa.gov/api/map_key
+python src/fetch_pm25.py 2026-08-01 2026-10-15          # repeat for 2023-2025 seasons
+python src/fetch_weather.py 2026-08-01 2026-10-17
+python src/fetch_upstream.py 2026-08-01 2026-10-15 --firms-only
+python src/build_pm25_table.py && python src/fire_features.py
+python src/window_eval.py          # model and baseline comparison
+python src/advisor_eval.py         # advice method: validate, then test once
+python src/export_app_data.py && python src/build_site.py   # demo data and GitHub Pages copy
+python src/shadow.py predict && python src/shadow.py score  # daily shadow run
+```
 
 ## Repository layout
 
 ```
-data/raw/        source data as downloaded, never edited
-data/processed/  cleaned, merged tables built by src/
-src/             data pipeline, features, model, evaluation
-notebooks/       exploration only; nothing reported comes only from a notebook
-app/             demo page
-docs/            competition submission materials
-archive/         superseded versions
+data/raw/        source data as downloaded, never edited (FIRMS raw files are git-ignored)
+data/processed/  cleaned tables built by src/
+src/             data pipeline, features, evaluation, shadow model, site build
+results/         metrics and test predictions written by src/
+models/          frozen shadow model and its metadata
+logs/            shadow model predictions, logged before outcomes are known
+app/             demo page source (Claude artifact) and its data
+web/             standalone GitHub Pages copy built from app/
+docs/            competition documents
+archive/         superseded downloads kept for reference
 ```
 
 ## License
