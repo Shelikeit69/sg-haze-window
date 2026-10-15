@@ -22,6 +22,11 @@ Record one clip per segment and name the files 01 to 12 (for example 01.m4a). Re
 - If a clip goes wrong, re-record only that clip.
 - Numbers to read as written: 111, 284, 20, 1, 21.1, 24.4, 81%, 12.1, 30, 90, 8.
 
+## Submitted version
+The submitted video has no voice-over. It shows the Chinese text above as burned-in subtitles. Each segment runs for its Chinese character count / 4.5 s, plus padding (167.7 s in total):
+
+    python src/video/assemble.py --work DIR --pdf slides.pdf --preview --subs zh --name haze_window_demo_zh.mp4
+
 ## Assembly (done in code)
 - Slide pictures come from the exported 11-page PDF, so fonts and layout match the deck.
 - Segment 04 is a recording of the live website, made with a headless browser.

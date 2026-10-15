@@ -125,7 +125,32 @@ def chunks(text, limit=80):
     return out
 
 
-def write_ass(work, rows, lengths):
+def chunks_zh(text, limit=32):
+    """Split Chinese text at sentence ends, then at commas, into lines of at most ~limit characters."""
+    out = []
+    for sent in [s for s in re.split(r"(?<=[。！？；：])", text) if s.strip()]:
+        if len(sent) <= limit:
+            out.append(sent)
+            continue
+        cur = ""
+        for part in [p for p in re.split(r"(?<=[，、])", sent) if p]:
+            if cur and len(cur) + len(part) > limit:
+                out.append(cur)
+                cur = part
+            else:
+                cur += part
+        if cur:
+            out.append(cur)
+    return out
+
+
+STYLES = {
+    "en": "Style: Sub,Public Sans,34,&H00F2F6F5,&H00F2F6F5,&H0018272B,&H0018272B,0,0,0,0,100,100,0,0,1,0,0,2,120,120,30,1",
+    "zh": "Style: Sub,Noto Sans CJK SC,40,&H00F2F6F5,&H00F2F6F5,&H0018272B,&H0018272B,0,0,0,0,100,100,0,0,1,0,0,2,120,120,26,1",
+}
+
+
+def write_ass(work, rows, lengths, lang="en"):
     head = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1920
@@ -133,15 +158,16 @@ PlayResY: 1080
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Sub,Public Sans,34,&H00F2F6F5,&H00F2F6F5,&H0018272B,&H0018272B,0,0,0,0,100,100,0,0,1,0,0,2,120,120,30,1
+{style}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+    head = head.replace("{style}", STYLES[lang])
     lines, t = [], 0.0
     for r in rows:
         L = lengths[r["id"]]
-        pieces = chunks(r["en"])
+        pieces = chunks_zh(r["zh"]) if lang == "zh" else chunks(r["en"])
         total = sum(len(p) for p in pieces)
         start = t + PAD
         span = L - 2 * PAD
@@ -160,7 +186,10 @@ def main():
     ap.add_argument("--work", required=True, type=Path)
     ap.add_argument("--pdf", type=Path)
     ap.add_argument("--audio", type=Path)
-    ap.add_argument("--preview", action="store_true")
+    ap.add_argument("--preview", action="store_true",
+                    help="no voice: each segment lasts its Chinese character count / 4.5 s (+ padding)")
+    ap.add_argument("--subs", choices=["en", "zh"], default="en", help="subtitle language")
+    ap.add_argument("--name", help="output file name")
     a = ap.parse_args()
     if not a.preview and not a.audio:
         raise SystemExit("give --audio DIR, or --preview")
@@ -190,8 +219,8 @@ def main():
     lst.write_text("".join(f"file '{p}'\n" for p in parts))
     joined = a.work / "joined.mp4"
     sh(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined)])
-    subs = write_ass(a.work, rows, lengths)
-    name = "haze_window_demo_preview.mp4" if a.preview else "haze_window_demo.mp4"
+    subs = write_ass(a.work, rows, lengths, a.subs)
+    name = a.name or ("haze_window_demo_preview.mp4" if a.preview else "haze_window_demo.mp4")
     final = a.work / name
     sh(["ffmpeg", "-v", "error", "-y", "-i", str(joined), "-vf", f"ass={subs}",
         "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-c:a", "copy", "-movflags", "+faststart", str(final)])
