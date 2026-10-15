@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  pages: write               # to request a Pages build after the daily commit
 
 concurrency:
   group: shadow-daily
@@ -46,16 +47,28 @@ jobs:
         run: cd src && python export_app_data.py && python build_site.py
 
       - name: Commit results
+        id: commit
         run: |
           # FIRMS raw history is not stored in the repository, so the runner rebuilds
           # fire features from the last few days only. Keep the committed full-history file.
           git checkout -- data/processed/fire_hourly.csv
           git config user.name "shadow-run[bot]"
           git config user.email "shadow-run@users.noreply.github.com"
-          git add logs/ results/shadow_status.md app/data.json web/ data/raw/pm25/ data/raw/weather/ data/processed/pm25_hourly.csv
+          git add logs/ results/shadow_status.md results/shadow_hour_choice.csv app/data.json web/ data/raw/pm25/ data/raw/weather/ data/processed/pm25_hourly.csv
           if git diff --cached --quiet; then
             echo "Nothing new to commit"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "Daily shadow run $(date +%Y-%m-%d)"
+            git pull --rebase origin main
             git push
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # Pushes made with the workflow's own token do not start a Pages build by
+      # themselves, so request one explicitly; otherwise the live page keeps old data.
+      - name: Publish the updated page
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"

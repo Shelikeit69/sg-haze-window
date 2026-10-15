@@ -8,7 +8,7 @@
 
 ## Who takes part
 
-[TO CONFIRM: the group(s) and how many people, for example "about 15 members of an amateur football group and a running group in east Singapore who have agreed to take part"]. Participants are adults who already exercise outdoors at least twice a week. People with heart or lung conditions are asked to follow NEA's advice and their doctor rather than the tool.
+Eight members of the applicant's amateur football team in Singapore, who have agreed to take part. They train outdoors together and need to pick session times. Eight people is a small group: the pilot can show whether the advice is understood and used, not prove a health effect. People with heart or lung conditions are asked to follow NEA's advice and their doctor rather than the tool.
 
 ## Setting
 
@@ -16,7 +16,7 @@ Singapore's five NEA regions, starting in the current haze season. The southwest
 
 ## Method
 
-**Weeks 1 to 12, every day: live accuracy log.** `src/shadow.py predict` runs each morning and records, before the outcome is known, three forecasts for every region and the next 24 hours: the advice estimate, repeating the current reading, and the shadow model. `src/shadow.py score` compares them with NEA readings once they arrive. Nothing in the log is recomputed later.
+**Weeks 1 to 12, every day: live accuracy log.** `src/shadow.py predict` runs each morning at 05:50 (GitHub Actions) and records, before the outcome is known, three forecasts for every region and the next 24 hours (the advice estimate, repeating the current reading, and the shadow model), plus the hour the page recommends and the hour the shadow model would pick. `src/shadow.py score` compares them with NEA readings once they arrive, including how much cleaner the recommended hour was than the other daytime hours. Days saved before they were complete are downloaded again, so every forecast eventually gets an outcome. Nothing in the log is recomputed later.
 
 **Weeks 1 to 6, while haze lasts: user test.**
 - Each participant uses the page before outdoor sessions and records the planned time, the time they actually went, and whether the page changed their plan (a two-question form after each session).

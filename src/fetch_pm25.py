@@ -1,8 +1,12 @@
 """Download NEA hourly PM2.5 (5 regions) from data.gov.sg v2, one raw JSON per day.
 
 Usage: python src/fetch_pm25.py 2026-09-01 2026-10-15
-Raw files are written once and never edited: data/raw/pm25/YYYY-MM-DD.json
-Existing files are skipped unless the day is today (still filling up).
+Raw files are kept as downloaded: data/raw/pm25/YYYY-MM-DD.json
+A file is skipped only when its day is over AND it already holds all 24 hours.
+Today, and any past day saved before it was complete (for example by the 05:50 daily
+run), is downloaded again so later hours are filled in and predictions can be scored.
+Days the source itself never completes are re-requested only when they fall inside
+the requested range, and the result is whatever the source returns.
 
 v2 is used because the v1 endpoint (?date=) omits the 00:00 reading of each day;
 v1 downloads are kept in archive/raw_pm25_v1 for reference.
@@ -27,12 +31,20 @@ def fetch(d: date) -> dict:
         return json.load(r)
 
 
+def complete(path: Path) -> bool:
+    try:
+        items = json.loads(path.read_text()).get("data", {}).get("items", [])
+    except (ValueError, AttributeError):
+        return False
+    return len({it.get("timestamp") for it in items}) >= 24
+
+
 def main(start: str, end: str) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     d, last = date.fromisoformat(start), date.fromisoformat(end)
     while d <= last:
         path = OUT / f"{d.isoformat()}.json"
-        if path.exists() and d != date.today():
+        if path.exists() and d < date.today() and complete(path):
             d += timedelta(days=1)
             continue
         for attempt in range(3):

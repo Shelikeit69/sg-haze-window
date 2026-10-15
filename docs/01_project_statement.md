@@ -5,7 +5,7 @@
 **Place:** Singapore
 **Demo:** https://shelikeit69.github.io/sg-haze-window/
 **Code and data:** https://github.com/Shelikeit69/sg-haze-window
-**Team:** [TO CONFIRM: names and roles]
+**Team:** Zhang Lin Si Cheng (Toni), individual entry
 
 ## The problem
 

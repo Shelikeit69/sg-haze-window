@@ -110,10 +110,20 @@ def predict(do_refresh=True):
                 & (df.target_time <= issue)].dropna(subset=["y"])
     ratio = (season.y / season.cams_target.astype(float)).groupby(season.region).median()
     now["advisor"] = 0.5 * now.pm_now + 0.5 * now.cams_target.astype(float) * now.region.map(ratio)
+    # Hour choice, recorded before the outcome is known (same rule as the demo page):
+    # candidates = target hours 06:00-21:00 within the next 24 h; the advice picks the
+    # candidate with the lowest CAMS forecast; the shadow model would pick its lowest P50.
+    now["candidate"] = now.target_time.dt.hour.between(6, 21)
+    cand = now[now.candidate]
+    cams_ok = cand.assign(c=cand.cams_target.astype(float)).dropna(subset=["c"])
+    pick_adv = cams_ok.groupby("region").c.idxmin()   # a region with no CAMS gets no pick
+    pick_mod = cand.groupby("region").p50.idxmin()
+    now["pick_advisor"] = now.index.isin(pick_adv.values)
+    now["pick_model"] = now.index.isin(pick_mod.values)
     now["version"] = VERSION
     now["logged_at_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     cols = ["version", "logged_at_utc", "issue_time", "target_time", "region", "horizon",
-            "pm_now", "p10", "p50", "p90", "advisor"]
+            "pm_now", "p10", "p50", "p90", "advisor", "candidate", "pick_advisor", "pick_model"]
     out = now[cols]
     LOG.parent.mkdir(exist_ok=True)
     if LOG.exists():
@@ -123,6 +133,46 @@ def predict(do_refresh=True):
         out = pd.concat([old, out])
     out.to_csv(LOG, index=False, float_format="%.2f")
     print(f"logged issue {issue} ({len(now)} rows); log now {len(out)} rows")
+
+
+def score_hour_choice(log, pm):
+    """Live check of the product's main claim: was the recommended hour cleaner?
+    Scored only for issues where every candidate hour now has an NEA reading.
+    Not part of the promotion criteria; reported for the validation plan."""
+    if "candidate" not in log.columns:
+        log = log.assign(candidate=False, pick_advisor=False, pick_model=False)
+    c = log[log.candidate.astype(str).str.lower() == "true"].merge(
+        pm, on=["target_time", "region"], how="left")
+    rows = []
+    for (issue, region), g in c.groupby(["issue_time", "region"]):
+        if g.y.isna().any() or len(g) == 0:
+            continue  # wait until every candidate hour has a reading
+        row = {"issue_time": issue, "region": region, "haze_day": g.y.mean() >= HAZE}
+        for who in ("advisor", "model"):
+            picked = g[g[f"pick_{who}"].astype(str).str.lower() == "true"].y
+            if len(picked) != 1:
+                continue
+            row[f"{who}_saving"] = g.y.mean() - picked.iloc[0]   # vs a random candidate hour
+            row[f"{who}_regret"] = picked.iloc[0] - g.y.min()    # vs the best hour in hindsight
+        rows.append(row)
+    out = ["## Hour choice (live)", "",
+           "Candidates: 06:00-21:00 in the 24 h after each issue. Saving = mean PM2.5 over the "
+           "candidates minus PM2.5 at the picked hour (higher is better). Regret = picked minus "
+           "the lowest candidate (lower is better). Not part of the promotion criteria.", ""]
+    cols = ["issue_time", "region", "haze_day", "advisor_saving", "advisor_regret", "model_saving", "model_regret"]
+    r = pd.DataFrame(rows, columns=cols)
+    (ROOT / "results").mkdir(exist_ok=True)
+    r.to_csv(ROOT / "results" / "shadow_hour_choice.csv", index=False, float_format="%.2f")
+    if not rows:
+        return out + ["No issue has all candidate hours observed yet."]
+    out += ["| Set | Issues | Advice saving | Advice regret | Shadow model saving | Shadow model regret |",
+            "|---|---|---|---|---|---|"]
+    for name, s in (("All issues", r), ("Hazy (candidate mean >= 56)", r[r.haze_day])):
+        if len(s):
+            f = lambda c: f"{s[c].mean():.1f}" if c in s and s[c].notna().any() else "n/a"
+            out.append(f"| {name} | {len(s)} | {f('advisor_saving')} | {f('advisor_regret')} | "
+                       f"{f('model_saving')} | {f('model_regret')} |")
+    return out
 
 
 def score():
@@ -155,6 +205,7 @@ def score():
         lines += ["", f"**Promote: {'YES' if all(checks.values()) else 'NO — stays in shadow mode'}**"]
     else:
         lines += ["", "No haze-day outcomes yet. **Promote: NO — stays in shadow mode**"]
+    lines += [""] + score_hour_choice(log, pm)
     STATUS.parent.mkdir(exist_ok=True)
     STATUS.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
