@@ -42,6 +42,21 @@ python src/export_app_data.py && python src/build_site.py   # demo data and GitH
 python src/shadow.py predict && python src/shadow.py score  # daily shadow run
 ```
 
+## API keys
+
+No key is stored in this repository. The daily run reads the FIRMS key from a GitHub repository secret.
+
+| Key | Used for | Where to find it again | Where it is stored |
+|---|---|---|---|
+| NASA FIRMS map key | Daily shadow run (fire detections) | Search the inbox of the registering email for "NASA FIRMS: Map key" from noreply@nasa.gov, or request one at https://firms.modaps.eosdis.nasa.gov/api/map_key/ | GitHub: Settings > Secrets and variables > Actions > `FIRMS_MAP_KEY` |
+| OpenAQ API key | One-off check of upstream sensors (not used daily) | Log in at https://explore.openaq.org/account, section "API Key" | Not stored |
+
+GitHub does not show a secret's value after it is saved. To change the FIRMS key, open the secret and paste the new value; the next daily run uses it.
+
+## Daily shadow run
+
+`.github/workflows/shadow-daily.yml` runs every day at 05:50 Singapore time. It logs the frozen model's forecast, scores earlier forecasts, refreshes the demo data and commits the results. To run it by hand: Actions > Daily shadow run > Run workflow. If the FIRMS secret is missing, the run stops at "Log today's shadow forecast" with a message saying so.
+
 ## Repository layout
 
 ```
