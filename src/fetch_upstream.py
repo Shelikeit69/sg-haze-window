@@ -22,7 +22,14 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "raw" / "upstream"
 UA = {"User-Agent": "sg-haze-window/0.1 (+https://github.com/Shelikeit69/sg-haze-window)"}
 AREA = "95,-6,120,6"
-FIRMS_SOURCES = ["VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT"]
+# Standard-processing (SP) archive covers up to SP_END; later dates only exist as near-real-time (NRT).
+# SP and NRT use slightly different processing; this is stated in the data statement.
+SP_END = date(2026, 6, 30)
+
+
+def firms_sources(d: date):
+    kind = "SP" if d <= SP_END else "NRT"
+    return [f"VIIRS_SNPP_{kind}", f"VIIRS_NOAA20_{kind}"]
 SENSORS = {  # OpenAQ sensor id -> label (location id in comment)
     15992900: "palembang",   # 6313205 SD Muhammadiyah 6/14 Palembang
     13534513: "malacca",     # 4545510 Malacca - Masjid Tengkera
@@ -48,7 +55,9 @@ def firms(start: date, end: date):
     d = start
     while d <= end:
         n = min(5, (end - d).days + 1)
-        for src in FIRMS_SOURCES:
+        if d <= SP_END < d + timedelta(days=n - 1):
+            n = (SP_END - d).days + 1  # do not let a chunk straddle the SP/NRT boundary
+        for src in firms_sources(d):
             path = OUT / "firms" / f"{src}_{d.isoformat()}_{n}d.csv"
             if path.exists():
                 continue
@@ -85,4 +94,5 @@ if __name__ == "__main__":
     (OUT / "firms").mkdir(parents=True, exist_ok=True)
     (OUT / "openaq").mkdir(parents=True, exist_ok=True)
     firms(s, e)
-    openaq(s, e)
+    if "--firms-only" not in sys.argv:
+        openaq(s, e)

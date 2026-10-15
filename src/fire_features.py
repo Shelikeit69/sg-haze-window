@@ -38,10 +38,19 @@ def load() -> pd.DataFrame:
     return df.dropna(subset=["region"])
 
 
+def covered_days() -> set:
+    """Days for which FIRMS files were downloaded (from file names: SOURCE_YYYY-MM-DD_Nd.csv)."""
+    days = set()
+    for f in RAW.glob("*.csv"):
+        start, n = f.stem.split("_")[-2], int(f.stem.split("_")[-1].rstrip("d"))
+        days.update(pd.date_range(start, periods=n).date)
+    return days
+
+
 def build() -> pd.DataFrame:
     df = load()
     last_available = df.available_sgt.max()
-    idx = pd.date_range("2026-09-01 00:00", pd.Timestamp.now(tz="Asia/Singapore").tz_localize(None).floor("h"), freq="h")
+    idx = pd.date_range("2023-08-01 00:00", pd.Timestamp.now(tz="Asia/Singapore").tz_localize(None).floor("h"), freq="h")
     out = pd.DataFrame(index=idx)
     for name in REGIONS:
         g = df[df.region == name].groupby("available_sgt").agg(n=("frp", "size"), frp=("frp", "sum"))
@@ -52,6 +61,11 @@ def build() -> pd.DataFrame:
             out[f"fire_{name}_{col}_24_48h"] = roll24.shift(24)
     # hours later than the last published overpass + 13 h (next overpass not yet in) are unknown
     out.loc[out.index > last_available + pd.Timedelta(hours=13)] = float("nan")
+    # outside downloaded periods we know nothing: a 48 h window must lie fully inside coverage
+    cov = pd.Series(pd.Index(out.index.date).isin(list(covered_days())), index=out.index)
+    ok = cov.rolling(48 + AVAILABILITY_LAG + 24, min_periods=1).min().astype(bool)
+    out.loc[~ok] = float("nan")
+    out = out.dropna(how="all")
     out.index.name = "timestamp"
     return out
 
@@ -61,4 +75,7 @@ if __name__ == "__main__":
     OUT.parent.mkdir(parents=True, exist_ok=True)
     f.to_csv(OUT, float_format="%.1f")
     print(f.shape, "last non-missing:", f.dropna().index.max())
-    print(f.resample("D").last()[[c for c in f.columns if c.endswith("_n_24h")]].tail(16).to_string())
+    d = f.resample("D").last()[[c for c in f.columns if c.endswith("_n_24h")]].dropna()
+    print("Median daily detections (24 h window), Sep 1 - Oct 15 of each year:")
+    sel = d[(d.index.month == 9) | ((d.index.month == 10) & (d.index.day <= 15))]
+    print(sel.groupby(sel.index.year).median().round(0).to_string())

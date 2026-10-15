@@ -34,12 +34,18 @@ def load_pm() -> pd.DataFrame:
 
 
 def load_open_meteo(prefix: str) -> dict:
+    """Concatenate all downloaded periods; if periods overlap, the later download wins."""
     out = {}
     for r in REGIONS:
-        f = next(RAW_W.glob(f"{prefix}_{r}_*.json"))
-        h = json.loads(f.read_text())["hourly"]
-        idx = pd.to_datetime(h.pop("time"))
-        out[r] = pd.DataFrame(h, index=idx).asfreq("h")
+        parts = []
+        for f in sorted(RAW_W.glob(f"{prefix}_{r}_*.json")):
+            d = json.loads(f.read_text())
+            h = d["hourly"]
+            idx = pd.to_datetime(h.pop("time"))
+            parts.append((d.get("_pulled_at_utc", ""), pd.DataFrame(h, index=idx)))
+        parts.sort(key=lambda x: x[0])
+        df = pd.concat([p for _, p in parts])
+        out[r] = df[~df.index.duplicated(keep="last")].sort_index()
     return out
 
 
@@ -72,10 +78,11 @@ def build() -> pd.DataFrame:
             "blh": w["boundary_layer_height"],
             "issue_hour": pm.index.hour,
         }, index=pm.index)
+        base = base[base.pm_now.notna()]  # only hours with a reading can be issue times
         for h in HORIZONS:
             b = base.copy()
             b["horizon"] = h
-            tgt_time = pm.index + pd.Timedelta(hours=h)
+            tgt_time = base.index + pd.Timedelta(hours=h)
             b["target_time"] = tgt_time
             b["target_hour"] = tgt_time.hour
             b["y"] = s.reindex(tgt_time).to_numpy()

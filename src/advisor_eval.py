@@ -35,7 +35,11 @@ FOLDS = {
 
 
 def day_sets(df, train_end, d0, d1):
-    tr = df[df.target_time <= pd.Timestamp(train_end)]
+    # Same-season data only: 2023-2025 had almost no haze in Singapore, and clean-air days
+    # have a different daily pattern (afternoon minimum) from haze days (morning minimum).
+    # Mixing them moved the "best hour" to the afternoon and made it worse (window_eval.py).
+    season_start = pd.Timestamp(year=pd.Timestamp(d0).year, month=8, day=1)
+    tr = df[(df.target_time <= pd.Timestamp(train_end)) & (df.target_time >= season_start)]
     ts = df[(df.issue_time >= pd.Timestamp(d0)) & (df.issue_time <= pd.Timestamp(d1) + pd.Timedelta(hours=23))]
     prof = (tr[tr.horizon == 1].groupby(["region", "target_hour"]).y.median())
     ratio = (tr[tr.horizon == 1].assign(r=lambda x: x.y / x.cams_target.astype(float))
@@ -44,6 +48,15 @@ def day_sets(df, train_end, d0, d1):
            & (ts.target_time.dt.normalize() == ts.issue_time.dt.normalize())
            & ts.target_hour.between(FIRST, LAST)].copy()
     g["profile"] = prof.reindex(list(zip(g.region, g.target_hour))).to_numpy()
+
+    # Regime profile (all years): haze-day vs clean-day daily pattern, picked by the current state.
+    # Threshold 56 µg/m³ = lower bound of NEA Band II (Elevated); taken from NEA, not tuned.
+    tr_all = df[(df.target_time <= pd.Timestamp(train_end)) & (df.horizon == 1)]
+    day_mean = tr_all.groupby([tr_all.target_time.dt.normalize(), "region"]).y.transform("mean")
+    tr_all = tr_all.assign(haze_day=day_mean >= 56)
+    prof_r = tr_all.groupby(["haze_day", "region", "target_hour"]).y.median()
+    g["haze_now"] = g.pm_mean24 >= 56
+    g["profile_regime"] = prof_r.reindex(list(zip(g.haze_now, g.region, g.target_hour))).to_numpy()
     g["cams"] = g.cams_target.astype(float)
     g["cams_corr"] = g.cams * g.region.map(ratio)
     g["day"] = g.issue_time.dt.normalize()
@@ -51,8 +64,8 @@ def day_sets(df, train_end, d0, d1):
     return g[full], ratio
 
 
-def score_choice(g, a):
-    g = g.assign(s=a * g.profile + (1 - a) * g.cams)
+def score_choice(g, a, col="profile"):
+    g = g.assign(s=a * g[col] + (1 - a) * g.cams)
     rows = []
     for (day, region), d in g.groupby(["day", "region"]):
         pick = d.loc[d.s.idxmin()]
@@ -83,8 +96,17 @@ def main():
     print(level_val.round(2).to_string())
     print(f"-> b = {b_best}")
 
+    choice_val_r = pd.DataFrame({a: score_choice(gA, a, "profile_regime") for a in GRID}).T
+    a_best_r = choice_val_r.saving.idxmax()
+    print("\nValidation (fold A) — hour choice with REGIME profile (haze-day / clean-day pattern, all years)")
+    print(choice_val_r.round(2).to_string())
+    print(f"-> a = {a_best_r}")
+    print("haze_now share at 05:00 — A:", round(gA.haze_now.mean(), 2), " B:", round(gB.haze_now.mean(), 2))
+
     test = {
         "advisor (a,b chosen on A)": (score_choice(gB, a_best), score_level(gB, b_best)),
+        "advisor, regime profile (a chosen on A)": (score_choice(gB, a_best_r, "profile_regime"), score_level(gB, b_best)),
+        "regime profile only (a=1)": (score_choice(gB, 1.0, "profile_regime"), score_level(gB, 1.0)),
         "profile only (a=1) / persistence (b=1)": (score_choice(gB, 1.0), score_level(gB, 1.0)),
         "CAMS only (a=0) / corrected CAMS (b=0)": (score_choice(gB, 0.0), score_level(gB, 0.0)),
     }
@@ -99,7 +121,8 @@ def main():
     OUT.mkdir(exist_ok=True)
     choice_val.to_csv(OUT / "advisor_val_choice.csv", float_format="%.3f")
     level_val.to_csv(OUT / "advisor_val_level.csv", float_format="%.3f")
-    res.assign(a=a_best, b=b_best).to_csv(OUT / "advisor_test.csv", float_format="%.3f")
+    choice_val_r.to_csv(OUT / "advisor_val_choice_regime.csv", float_format="%.3f")
+    res.assign(a=a_best, a_regime=a_best_r, b=b_best).to_csv(OUT / "advisor_test.csv", float_format="%.3f")
 
 
 if __name__ == "__main__":

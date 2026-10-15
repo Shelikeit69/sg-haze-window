@@ -30,9 +30,16 @@ def report(df: pd.DataFrame) -> None:
     dup = df.duplicated(["timestamp", "region"]).sum()
     print(f"duplicate (timestamp, region): {dup}")
     print(f"null pm25: {df.pm25.isna().sum()}")
-    full = pd.date_range(df.timestamp.min(), df.timestamp.max(), freq="h")
-    missing = full.difference(df.timestamp.unique())
-    print(f"missing hours: {len(missing)}" + (f" -> {list(missing)}" if len(missing) else ""))
+    # missing hours counted only inside downloaded days (seasons), not in the gaps between seasons
+    present = pd.DatetimeIndex(df.timestamp.unique())
+    days = present.normalize().unique()
+    full = pd.DatetimeIndex([d + pd.Timedelta(hours=h) for d in days for h in range(24)])
+    full = full[full <= present.max()]
+    missing = full.difference(present)
+    print(f"days with data: {len(days)}; missing hours inside those days: {len(missing)}")
+    by_day = pd.Series(1, index=missing).groupby(missing.normalize()).size()
+    if len(by_day):
+        print("  days with gaps (hours missing):", ", ".join(f"{d.date()}({n})" for d, n in by_day.items()))
     print("per-region summary (µg/m³):")
     print(df.groupby("region").pm25.describe()[["min", "50%", "max"]].to_string())
 

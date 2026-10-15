@@ -1,4 +1,6 @@
-method,saving,regret,same_band,MAE,band_acc,a,b
-"advisor (a,b chosen on A)",21.580,11.240,0.820,20.870,0.810,0.500,0.500
-profile only (a=1) / persistence (b=1),17.140,15.690,0.840,24.360,0.730,0.500,0.500
-CAMS only (a=0) / corrected CAMS (b=0),12.090,20.730,0.730,24.990,0.780,0.500,0.500
+method,saving,regret,same_band,MAE,band_acc,a,a_regime,b
+"advisor (a,b chosen on A)",12.090,20.730,0.730,21.090,0.810,0.000,0.000,0.500
+"advisor, regime profile (a chosen on A)",12.090,20.730,0.730,21.090,0.810,0.000,0.000,0.500
+regime profile only (a=1),10.090,22.730,0.730,24.360,0.730,0.000,0.000,0.500
+profile only (a=1) / persistence (b=1),13.070,19.760,0.800,24.360,0.730,0.000,0.000,0.500
+CAMS only (a=0) / corrected CAMS (b=0),12.090,20.730,0.730,25.380,0.780,0.000,0.000,0.500
