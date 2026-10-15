@@ -4,9 +4,9 @@
 
 | Source | What we use | Period | Access |
 |---|---|---|---|
-| NEA via data.gov.sg (v2 real-time API) | 1-hour PM2.5, µg/m³, for the five NEA regions | 1 Aug to 15 Nov in 2023, 2024 and 2025; 1 Aug to 15 Oct 2026 | Open, no key |
-| CAMS global atmospheric composition forecast, via Open-Meteo air-quality API | Forecast PM2.5 at the five NEA region points | Same periods, plus two days ahead for live use | Open, no key |
-| Open-Meteo historical weather API | Wind speed and direction, rain, humidity, boundary layer height | Same periods | Open, no key |
+| NEA via data.gov.sg (v2 real-time API) | 1-hour PM2.5, µg/m³, for the five NEA regions | 1 Aug to 15 Nov in 2023, 2024 and 2025; 1 Aug to 15 Oct 2026 | No key. Singapore Open Data Licence: commercial use allowed, source credit and licence link required |
+| CAMS global atmospheric composition forecast, via Open-Meteo air-quality API | Forecast PM2.5 at the five NEA region points | Same periods, plus two days ahead for live use | No key. Free for non-commercial use up to 10,000 calls a day; CC BY 4.0, attribution required; commercial use needs a subscription |
+| Open-Meteo historical weather API | Wind speed and direction, rain, humidity, boundary layer height | Same periods | Same terms as above |
 | NASA FIRMS, VIIRS (Suomi NPP and NOAA-20) | Active fire detections over Sumatra, Kalimantan and Peninsular Malaysia | Standard processing to 30 Jun 2026, near-real-time after | Free key |
 | OpenAQ v3 | Low-cost sensors in Palembang, Malacca and Johor | Checked, not used: Palembang had 65 hours and Malacca 97 hours of data in six weeks | Free key |
 

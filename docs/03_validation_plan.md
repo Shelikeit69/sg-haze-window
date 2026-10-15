@@ -21,7 +21,7 @@ Singapore's five NEA regions, starting in the current haze season. The southwest
 **Weeks 1 to 6, while haze lasts: user test.**
 - Each participant uses the page before outdoor sessions and records the planned time, the time they actually went, and whether the page changed their plan (a two-question form after each session).
 - Exposure is measured with NEA data, not wearable sensors: the 1-hour PM2.5 for their region at the hour they went, compared with the hour they would normally have gone.
-- At the end, a short interview: was the advice clear, did the stated error range make sense, what would make them trust it more or less.
+- At the end, a short interview: was the advice clear, did the stated error range make sense, what would make them trust it more or less, and would the coach keep using it to set session times after the pilot. The last question is the first test of whether anyone values the tool enough to keep it running.
 
 **Weeks 7 to 12: review and report.** Write up results, including anything that went badly, and decide whether to continue into the next haze season.
 
