@@ -2,6 +2,8 @@
 
 AI forecast of hourly PM2.5 in Singapore during transboundary haze, to help people pick lower-exposure windows for outdoor activity. Entry to the AI4Climate 2026 Global Youth Climate Solutions Challenge (open track).
 
+**Live demo:** https://shelikeit69.github.io/sg-haze-window/
+
 > Status: work in progress. Sections marked TODO are not yet written. No results are reported until they come out of the code in this repository.
 
 ## Problem
