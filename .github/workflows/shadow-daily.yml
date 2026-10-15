@@ -1,0 +1,61 @@
+# Daily shadow run: log the frozen model's forecast before outcomes are known,
+# score earlier forecasts, refresh the demo data, and commit the results.
+name: Daily shadow run
+
+on:
+  schedule:
+    - cron: "50 21 * * *"   # 05:50 Singapore time (UTC+8)
+  workflow_dispatch: {}      # allows a manual run from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shadow-daily
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Singapore         # scripts use local dates; NEA days are Singapore days
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install pinned packages
+        run: pip install -r requirements.txt
+
+      - name: Log today's shadow forecast
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+        run: |
+          test -n "$FIRMS_MAP_KEY" || { echo "Repository secret FIRMS_MAP_KEY is not set"; exit 1; }
+          cd src && python shadow.py predict
+
+      - name: Score earlier forecasts
+        run: cd src && python shadow.py score
+
+      - name: Refresh demo data
+        run: cd src && python export_app_data.py && python build_site.py
+
+      - name: Commit results
+        run: |
+          # FIRMS raw history is not stored in the repository, so the runner rebuilds
+          # fire features from the last few days only. Keep the committed full-history file.
+          git checkout -- data/processed/fire_hourly.csv
+          git config user.name "shadow-run[bot]"
+          git config user.email "shadow-run@users.noreply.github.com"
+          git add logs/ results/shadow_status.md app/data.json web/ data/raw/pm25/ data/raw/weather/ data/processed/pm25_hourly.csv
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+          else
+            git commit -m "Daily shadow run $(date +%Y-%m-%d)"
+            git push
+          fi

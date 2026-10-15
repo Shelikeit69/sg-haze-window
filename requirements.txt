@@ -1,0 +1,6 @@
+# Pinned: models/shadow-v1.joblib must be loaded with the same scikit-learn version it was saved with.
+scikit-learn==1.9.1
+numpy==2.5.3
+pandas==3.0.5
+joblib==1.6.0
+scipy==1.18.1
