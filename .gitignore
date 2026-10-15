@@ -221,3 +221,6 @@ __marimo__/
 
 # FIRMS raw detections are large (~36 MB); re-download with src/fetch_upstream.py
 data/raw/upstream/firms/
+
+# video work files (recordings, renders) stay outside the repo
+video_out/
