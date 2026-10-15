@@ -64,11 +64,14 @@ def main():
         tr = df[df.target_time <= te]
         ts = df[(df.issue_time >= pd.Timestamp(d0)) & (df.issue_time <= pd.Timestamp(d1) + pd.Timedelta(hours=23))]
         ts = ts.copy()
-        for name, feats in (("model", FEATS), ("model+cams*", FEATS + ["cams_target"])):
+        fire_cols = [c for c in df.columns if c.startswith("fire_")]
+        for name, feats in (("model", FEATS), ("model+cams*", FEATS + ["cams_target"]),
+                            ("model+fire", FEATS + fire_cols),
+                            ("model+fire+cams*", FEATS + fire_cols + ["cams_target"])):
             m = fit(tr[feats], np.log1p(tr.y) - np.log1p(tr.pm_now))
             ts[name] = np.expm1(np.log1p(ts.pm_now) + m.predict(ts[feats]))
         ts["persistence"] = ts.pm_now
-        for meth in ("model", "model+cams*", "persistence"):
+        for meth in ("model", "model+cams*", "model+fire", "model+fire+cams*", "persistence"):
             for hg, (a, b) in {"1-3": (1, 3), "4-12": (4, 12), "13-24": (13, 24)}.items():
                 s = ts[(ts.horizon >= a) & (ts.horizon <= b)]
                 mae_rows.append({"fold": fold, "horizons": hg, "method": meth,
@@ -87,6 +90,8 @@ def main():
             picks = {
                 "model": g.loc[g["model"].idxmin(), "target_hour"],
                 "model+cams*": g.loc[g["model+cams*"].idxmin(), "target_hour"],
+                "model+fire": g.loc[g["model+fire"].idxmin(), "target_hour"],
+                "model+fire+cams*": g.loc[g["model+fire+cams*"].idxmin(), "target_hour"],
                 "same_hour_yday": g.loc[g.pm_same_hour_yday.astype(float).idxmin(), "target_hour"],
                 "train_profile": fixed_hour[region],
                 "cams_raw*": g.loc[g.cams_target.astype(float).idxmin(), "target_hour"],

@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# FIRMS raw detections are large (~36 MB); re-download with src/fetch_upstream.py
+data/raw/upstream/firms/

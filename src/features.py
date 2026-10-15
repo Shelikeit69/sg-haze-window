@@ -84,6 +84,10 @@ def build() -> pd.DataFrame:
             b["cams_target"] = cams[r]["pm2_5"].reindex(tgt_time).to_numpy()
             rows.append(b)
     df = pd.concat(rows).rename_axis("issue_time").reset_index()
+    fire_path = ROOT / "data" / "processed" / "fire_hourly.csv"
+    if fire_path.exists():  # upstream fire features, known at issue time (see fire_features.py)
+        fire = pd.read_csv(fire_path, parse_dates=["timestamp"]).set_index("timestamp")
+        df = df.join(fire, on="issue_time")
     # the seasonal-naive value must already be observed at issue time (needs h <= 24)
     return df
 
