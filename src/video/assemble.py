@@ -87,11 +87,20 @@ def prepare_audio(work, rows, audio_dir, preview):
                 "-t", f"{n / 4.5 + 2 * PAD:.2f}", dst])
         else:
             src = next(audio_dir.glob(f"{r['id']}.*"))
-            # trim silence at both ends, then add a short pad so words are not clipped
-            trim = ("silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05,"
-                    "areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05,areverse,"
-                    f"adelay={int(PAD * 1000)},apad=pad_dur={PAD},loudnorm=I=-16:TP=-1.5")
-            sh(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", trim, "-ar", "48000", "-ac", "1", dst])
+            # 1) trim silence at both ends and add a short pad so words are not clipped
+            tmp = out / f"{r['id']}_trim.wav"
+            trim = ("silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.05,"
+                    "areverse,silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.05,areverse,"
+                    f"adelay={int(PAD * 1000)},apad=pad_dur={PAD}")
+            sh(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", trim, "-ar", "48000", "-ac", "1", tmp])
+            # 2) measure loudness, then apply the exact gain to reach -16 LUFS, with a limiter
+            #    (single-pass loudnorm undershoots on clips this short)
+            meas = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(tmp), "-af", "ebur128", "-f", "null", "-"],
+                                  capture_output=True, text=True).stderr
+            lufs = float(re.findall(r"I:\s+(-?[\d.]+) LUFS", meas)[-1])
+            gain = -16.0 - lufs
+            sh(["ffmpeg", "-v", "error", "-y", "-i", str(tmp), "-af",
+                f"volume={gain:.2f}dB,alimiter=limit=0.89:level=false", "-ar", "48000", "-ac", "1", dst])
         files[r["id"]] = dst
     return files
 
