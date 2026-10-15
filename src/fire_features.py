@@ -28,6 +28,8 @@ REGIONS = {
 
 def load() -> pd.DataFrame:
     df = pd.concat(pd.read_csv(f) for f in sorted(RAW.glob("*.csv")))
+    # daily live refreshes download overlapping chunks: count each detection once
+    df = df.drop_duplicates(subset=["latitude", "longitude", "acq_date", "acq_time", "satellite"])
     df = df[df.confidence.isin(["n", "h"])].copy()
     t = pd.to_datetime(df.acq_date + " " + df.acq_time.astype(str).str.zfill(4), format="%Y-%m-%d %H%M", utc=True)
     df["available_sgt"] = (t + pd.Timedelta(hours=AVAILABILITY_LAG)).dt.tz_convert("Asia/Singapore").dt.tz_localize(None).dt.ceil("h")
