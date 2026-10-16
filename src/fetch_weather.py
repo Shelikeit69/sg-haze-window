@@ -66,7 +66,10 @@ def main(s: str, e: str) -> None:
             # left missing and flagged downstream (wx_missing_at_issue), never filled.
             end = min(e, datetime.now(timezone.utc).date().isoformat()) if src == "weather" else e
             path = OUT / f"{src}_{name}_{s}_{end}.json"
-            if path.exists():
+            # Skip only ranges that are fully in the past. A range reaching today or later
+            # (always true for CAMS) is downloaded again, otherwise the 22:15 run would reuse
+            # the CAMS forecast saved by the 05:50 run on the same day (same file name).
+            if path.exists() and end < datetime.now().date().isoformat():
                 print(f"{src:7s} {name:7s} exists, skipped")
                 continue
             data = get(tmpl.format(lat=lat, lon=lon, s=s, e=end))
