@@ -37,6 +37,8 @@ jobs:
       - name: Log today's shadow forecast
         env:
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          # Which cron fired (GitHub may start it hours late); "manual" for Run workflow.
+          RUN_SLOT: ${{ github.event.schedule == '50 21 * * *' && 'morning' || (github.event.schedule == '15 14 * * *' && 'evening' || 'manual') }}
         run: |
           test -n "$FIRMS_MAP_KEY" || { echo "Repository secret FIRMS_MAP_KEY is not set"; exit 1; }
           cd src && python shadow.py predict

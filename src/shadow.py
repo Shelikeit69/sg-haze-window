@@ -10,6 +10,7 @@ forecasts are genuinely available before the target hour), NASA FIRMS NRT fires.
 Keys: export FIRMS_MAP_KEY before `predict` (see src/fetch_upstream.py).
 """
 import json
+import os
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -36,6 +37,7 @@ BASE = ["pm_now", "pm_lag1", "pm_lag2", "pm_lag3", "pm_lag6", "pm_lag12", "pm_la
         "pm_d3", "pm_mean24", "pm_max24", "island_mean", "island_max", "island_mean_d3",
         "wind_speed", "wind_sin", "wind_cos", "rain_3h", "rh", "blh",
         "issue_hour", "target_hour", "pm_same_hour_yday", "region_code", "horizon"]
+WX = ["wind_speed", "wind_sin", "wind_cos", "rain_3h", "rh", "blh"]  # weather inputs at issue time
 
 
 def table() -> pd.DataFrame:
@@ -122,8 +124,18 @@ def predict(do_refresh=True):
     now["pick_model"] = now.index.isin(pick_mod.values)
     now["version"] = VERSION
     now["logged_at_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # Which scheduled run produced this issue (set by the workflow from the cron that fired;
+    # "manual" for a hand-started or local run). GitHub can start a scheduled run hours late.
+    now["run_slot"] = os.environ.get("RUN_SLOT", "manual")
+    # Weather at the issue hour can be missing (the archive API serves dates up to today's
+    # UTC date only, so a 05:50 SGT run has weather to 23:00 the previous day). The model
+    # then sees missing values; flag it so these issues can be checked separately.
+    now["wx_missing_at_issue"] = now[WX].isna().any(axis=1)
+    if now.wx_missing_at_issue.any():
+        print(f"weather missing at issue {issue} for {now.wx_missing_at_issue.mean():.0%} of rows (flagged)")
     cols = ["version", "logged_at_utc", "issue_time", "target_time", "region", "horizon",
-            "pm_now", "p10", "p50", "p90", "advisor", "candidate", "pick_advisor", "pick_model"]
+            "pm_now", "p10", "p50", "p90", "advisor", "candidate", "pick_advisor", "pick_model",
+            "run_slot", "wx_missing_at_issue"]
     out = now[cols]
     LOG.parent.mkdir(exist_ok=True)
     if LOG.exists():
@@ -149,6 +161,11 @@ def score_hour_choice(log, pm):
             continue  # wait until every candidate hour has a reading
         h = pd.Timestamp(issue).hour
         slot = "morning" if h < 12 else ("evening" if h >= 18 else "daytime")
+        # A scheduled run that started so late that its issue hour falls outside its own slot
+        # (e.g. the 22:15 run starting at 02:15) matches neither design: report it apart.
+        run_slot = str(g.run_slot.iloc[0]) if "run_slot" in g else "nan"
+        if run_slot in ("morning", "evening") and run_slot != slot:
+            slot = "late"
         row = {"issue_time": issue, "region": region, "issue_slot": slot, "haze_day": g.y.mean() >= HAZE}
         for who in ("advisor", "model"):
             picked = g[g[f"pick_{who}"].astype(str).str.lower() == "true"].y
@@ -170,11 +187,13 @@ def score_hour_choice(log, pm):
     # Morning issues (05:50 run, same-day hours) match the backtest design. Evening issues
     # (22:15 run, next-day hours, 8-23 h ahead) were never backtested: always reported apart.
     out += ["Morning = issued before 12:00 (same setup as the backtest). Evening = issued 18:00 or "
-            "later for the next day; not backtested, so never pooled with morning results.", "",
+            "later for the next day; not backtested, so never pooled with morning results. "
+            "Late = a scheduled run that GitHub started so late that its issue hour fell outside "
+            "its own slot; reported apart.", "",
             "| Set | Issues | Advice saving | Advice regret | Shadow model saving | Shadow model regret |",
             "|---|---|---|---|---|---|"]
     sets = []
-    for slot in ("morning", "evening", "daytime"):
+    for slot in ("morning", "evening", "late", "daytime"):
         s = r[r.issue_slot == slot]
         sets += [(f"{slot.capitalize()}, all", s), (f"{slot.capitalize()}, hazy (candidate mean >= 56)", s[s.haze_day])]
     for name, s in sets:

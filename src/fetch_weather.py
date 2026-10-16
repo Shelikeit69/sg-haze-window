@@ -43,10 +43,16 @@ def get(url: str, tries: int = 4) -> dict:
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
                 return json.load(r)
-        except Exception:
-            if i == tries - 1:
+        except Exception as e:
+            # 4xx other than 429 is a bad request: retrying will not help, fail with the reason.
+            code = getattr(e, "code", None)
+            if i == tries - 1 or (code is not None and 400 <= code < 500 and code != 429):
+                if hasattr(e, "read"):
+                    print(f"  {code} {e.read()[:200]!r}")
                 raise
-            time.sleep(3 * (i + 1))
+            wait = 30 * (i + 1) if code == 429 else 3 * (i + 1)  # Open-Meteo rate limit: back off
+            print(f"  retry in {wait}s after {e}")
+            time.sleep(wait)
 
 
 def main(s: str, e: str) -> None:
@@ -54,8 +60,11 @@ def main(s: str, e: str) -> None:
     pulled = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for name, (lat, lon) in REGIONS.items():
         for src, tmpl in (("weather", WEATHER), ("cams", CAMS)):
-            # archive endpoint rejects end dates after today
-            end = min(e, datetime.now().date().isoformat()) if src == "weather" else e
+            # The archive endpoint rejects end dates after today's UTC date (HTTP 400), even
+            # with timezone=Asia/Singapore. Between 00:00 and 08:00 SGT the Singapore date is
+            # one day ahead of UTC, so the cap must use the UTC date. Hours after the cap are
+            # left missing and flagged downstream (wx_missing_at_issue), never filled.
+            end = min(e, datetime.now(timezone.utc).date().isoformat()) if src == "weather" else e
             path = OUT / f"{src}_{name}_{s}_{end}.json"
             if path.exists():
                 print(f"{src:7s} {name:7s} exists, skipped")
