@@ -1,11 +1,18 @@
 # Shadow model status (shadow-v1)
 
-Scored at 2026-10-15T07:26:14+00:00 UTC. Criteria: docs/promotion_criteria.md
+Scored at 2026-10-16T02:35:45+00:00 UTC. Criteria: docs/promotion_criteria.md
 
-- Logged predictions with a known outcome: 5
-- Distinct haze days scored (12-24 h): 0 / 30 needed
+- Logged predictions with a known outcome: 195
+- Distinct haze days scored (12-24 h): 1 / 30 needed
 
-No haze-day outcomes yet. **Promote: NO — stays in shadow mode**
+| Criterion | Met |
+|---|---|
+| 1. >= 30 haze days | no |
+| 2. MAE 45.3 <= 0.9 x persistence 10.0 and < advisor 38.9 | no |
+| 3. every region <= 1.1 x persistence (worst 7.25) | no |
+| 4. P10-P90 coverage 0.44 in [0.70, 0.90] | no |
+
+**Promote: NO — stays in shadow mode**
 
 ## Hour choice (live)
 

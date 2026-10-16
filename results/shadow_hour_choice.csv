@@ -1,1 +1,1 @@
-issue_time,region,haze_day,advisor_saving,advisor_regret,model_saving,model_regret
+issue_time,region,issue_slot,haze_day,advisor_saving,advisor_regret,model_saving,model_regret
