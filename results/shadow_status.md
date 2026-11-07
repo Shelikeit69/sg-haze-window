@@ -1,8 +1,8 @@
 # Shadow model status (shadow-v1)
 
-Scored at 2026-11-07T01:17:04+00:00 UTC. Criteria: docs/promotion_criteria.md
+Scored at 2026-11-07T18:44:28+00:00 UTC. Criteria: docs/promotion_criteria.md
 
-- Logged predictions with a known outcome: 5425
+- Logged predictions with a known outcome: 5595
 - Distinct haze days scored (12-24 h): 8 / 30 needed
 
 | Criterion | Met |
